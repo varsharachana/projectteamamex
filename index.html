@@ -1,79 +1,311 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Card Validation</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f4f4f9;
-        }
-        .container {
-            text-align: center;
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        input {
-            padding: 10px;
-            width: 80%;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .message {
-            margin-top: 15px;
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Enter Card Number</h1>
-        <input type="text" id="cardNumber" placeholder="Enter your card number" maxlength="16">
-        <button onclick="validateCard()">Validate</button>
-        <div id="message" class="message"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Credit Card Expense Categorization Agent</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand" aria-label="Expense agent brand">
+          <div class="brand-mark">CC</div>
+          <span>CrediWise</span>
+        </div>
+
+        <div class="topbar-actions">
+          <div class="user-pill" id="user-pill">
+            <span class="user-dot"></span>
+            <span id="header-user">Guest</span>
+          </div>
+          <button type="button" class="ghost-btn" id="logout-btn" style="display: none;">Logout</button>
+        </div>
+      </header>
+
+      <main>
+        <section id="auth-screen" class="screen active">
+          <div class="auth-wrap panel">
+            <div class="hero-panel">
+              <div class="hero-content">
+                <span class="eyebrow">Smart budgeting</span>
+                <h1>Credit card expenses, finally sorted.</h1>
+                <p>
+                  Retrieve statements, identify spend categories, and review ambiguous transactions before your next budget cycle.
+                </p>
+
+                <div class="feature-list">
+                  <div class="feature-item">
+                    <strong>Bank-ready flow</strong>
+                    <span>Demo onboarding for multiple banks</span>
+                  </div>
+                  <div class="feature-item">
+                    <strong>Smart categorization</strong>
+                    <span>Simulated AI confidence scoring</span>
+                  </div>
+                  <div class="feature-item">
+                    <strong>Spending insights</strong>
+                    <span>Category totals and budget trends</span>
+                  </div>
+                  <div class="feature-item">
+                    <strong>Review controls</strong>
+                    <span>Quick fixes for ambiguous charges</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="auth-form-panel">
+              <div class="form-header">
+                <h2>Welcome</h2>
+                <p>Secure your spending analysis experience.</p>
+              </div>
+
+              <div class="auth-toggle" aria-label="Authentication mode switcher">
+                <button id="auth-toggle-login" class="active" type="button">Login</button>
+                <button id="auth-toggle-signup" type="button">Signup</button>
+              </div>
+
+              <form id="login-form" class="form-grid" novalidate>
+                <div class="field">
+                  <label for="login-email">Email</label>
+                  <input id="login-email" type="email" placeholder="you@example.com" required />
+                </div>
+
+                <div class="field">
+                  <label for="login-password">Password</label>
+                  <input id="login-password" type="password" placeholder="Enter your password" required />
+                </div>
+
+                <div class="inline-row">
+                  <span class="muted">Demo mode only</span>
+                  <button class="primary-btn" type="submit">Login</button>
+                </div>
+
+                <div id="login-status" class="form-status" aria-live="polite"></div>
+              </form>
+
+              <form id="signup-form" class="form-grid" style="display: none;" novalidate>
+                <div class="field">
+                  <label for="signup-name">Full name</label>
+                  <input id="signup-name" type="text" placeholder="John Smith" required />
+                </div>
+
+                <div class="field">
+                  <label for="signup-email">Email</label>
+                  <input id="signup-email" type="email" placeholder="you@example.com" required />
+                </div>
+
+                <div class="password-row">
+                  <div class="field">
+                    <label for="signup-password">Password</label>
+                    <input id="signup-password" type="password" placeholder="Create password" required />
+                  </div>
+                  <div class="field">
+                    <label for="signup-confirm-password">Confirm</label>
+                    <input id="signup-confirm-password" type="password" placeholder="Confirm password" required />
+                  </div>
+                </div>
+
+                <div class="inline-row">
+                  <span class="muted">No passwords are stored</span>
+                  <button class="primary-btn" type="submit">Create account</button>
+                </div>
+
+                <div id="signup-status" class="form-status" aria-live="polite"></div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section id="profile-screen" class="screen">
+          <div class="content-panel panel">
+            <div class="section-head">
+              <h2>User Profile</h2>
+              <span class="meta-tag">Secure demo profile</span>
+            </div>
+
+            <div class="profile-summary">
+              <div class="user-card panel">
+                <div class="user-avatar" id="profile-avatar">JS</div>
+                <h3 id="profile-name">Jane Smith</h3>
+                <p id="profile-email">jane@example.com</p>
+              </div>
+
+              <div class="info-card">
+                <h4>Connected cards</h4>
+                <div class="card-list" id="connected-card-list"></div>
+                <button type="button" class="primary-btn" id="new-connection-btn">Connect Credit Card</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="bank-screen" class="screen">
+          <div class="content-panel panel">
+            <div class="section-head">
+              <h2>Select your bank</h2>
+              <button type="button" class="ghost-btn" id="go-to-profile">Back</button>
+            </div>
+
+            <div class="bank-grid" id="bank-options"></div>
+          </div>
+        </section>
+
+        <section id="connect-screen" class="screen">
+          <div class="content-panel panel">
+            <div class="section-head">
+              <h2>Connect Credit Card</h2>
+              <button type="button" class="ghost-btn" id="back-to-bank">Back</button>
+            </div>
+
+            <div class="connect-grid">
+              <form id="connect-form" class="connect-card panel" novalidate>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="bank-name">Selected bank</label>
+                    <input id="bank-name" type="text" value="HDFC" readonly />
+                  </div>
+
+                  <div class="field">
+                    <label for="cardholder-name">Cardholder name</label>
+                    <input id="cardholder-name" name="cardholderName" type="text" placeholder="Enter name on card" />
+                  </div>
+
+                  <div class="field">
+                    <label for="card-number">Credit card number</label>
+                    <input id="card-number" name="cardNumber" type="text" placeholder="1234 5678 9012 3456" maxlength="19" />
+                  </div>
+
+                  <div class="masked-preview" id="masked-preview">•••• •••• •••• ••••</div>
+
+                  <div class="field">
+                    <label for="mobile-number">Registered mobile number</label>
+                    <input id="mobile-number" name="mobile" type="tel" placeholder="+91 98765 43210" />
+                  </div>
+
+                  <div class="consent-box">
+                    <input id="consent-checkbox" name="consent" type="checkbox" />
+                    <label for="consent-checkbox">I consent to retrieve and analyze statement details for demo expense categorization. I understand this is simulated and no CVV, PIN, or banking passwords are requested.</label>
+                  </div>
+
+                  <div class="inline-row">
+                    <button type="button" class="secondary-btn" id="verify-otp-btn">Generate Demo OTP</button>
+                    <button type="submit" class="primary-btn">Verify & Connect</button>
+                  </div>
+
+                  <div class="otp-box" id="otp-box">
+                    <strong id="demo-otp" data-otp="483271">Demo OTP: 483271</strong>
+                    <div class="field">
+                      <label for="otp-code">Enter OTP</label>
+                      <input id="otp-code" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit OTP" />
+                    </div>
+                  </div>
+
+                  <div id="connect-error" class="error-banner" aria-live="polite"></div>
+                </div>
+              </form>
+
+              <aside class="info-card panel">
+                <h4>Privacy and security</h4>
+                <ul>
+                  <li>Card details are masked after entry and never stored in full.</li>
+                  <li>We never request CVV, PIN, banking passwords, or one-time passwords from the bank itself.</li>
+                  <li>Real statement retrieval requires a trusted provider integration and explicit user consent.</li>
+                  <li>Only safe demo data is persisted for the prototype.</li>
+                </ul>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section id="statement-screen" class="screen">
+          <div class="content-panel panel">
+            <div class="section-head">
+              <h2>Retrieve Statement</h2>
+              <span class="meta-tag">Demo mode</span>
+            </div>
+
+            <div class="statement-grid">
+              <form id="statement-form" class="statement-card panel" novalidate>
+                <div class="info-card">
+                  <h4>Selected profile</h4>
+                  <div class="bank-row">
+                    <span class="muted">Bank</span>
+                    <strong id="statement-bank">HDFC</strong>
+                  </div>
+                  <div class="bank-row">
+                    <span class="muted">Card</span>
+                    <strong id="statement-card">•••• •••• •••• 4242</strong>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label for="statement-month">Statement month</label>
+                  <input id="statement-month" type="month" />
+                </div>
+
+                <div class="date-grid">
+                  <div class="field">
+                    <label for="date-start">Custom start date</label>
+                    <input id="date-start" type="date" />
+                  </div>
+                  <div class="field">
+                    <label for="date-end">Custom end date</label>
+                    <input id="date-end" type="date" />
+                  </div>
+                </div>
+
+                <button type="submit" class="primary-btn">Fetch and Categorize Statement</button>
+                <div id="fetch-status" class="form-status" aria-live="polite"></div>
+                <div id="statement-error" class="error-banner" aria-live="polite"></div>
+
+                <div id="loading-wrap" class="loading-wrap" aria-live="polite">
+                  <div class="progress">
+                    <div id="progress-bar" class="progress-bar"></div>
+                  </div>
+                </div>
+
+                <div class="demo-note">
+                  Demo data only: real statement retrieval requires an authorized bank/provider integration and explicit consent. Card and mobile details alone cannot retrieve a bank statement.
+                </div>
+              </form>
+
+              <aside class="info-card panel">
+                <h4>Selected statement</h4>
+                <div class="mini-bank-box">
+                  <div class="bank-logo" id="statement-bank-accent" style="background:#0d2449;">H</div>
+                  <div>
+                    <strong id="statement-bank-name">HDFC</strong>
+                    <p class="muted" id="statement-period-label">Select period</p>
+                  </div>
+                </div>
+                <p class="muted">This prototype generates realistic synthetic transactions and simulated AI classifications for review and planning.</p>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section id="dashboard-screen" class="screen">
+          <div class="content-panel panel">
+            <div class="section-head">
+              <div>
+                <h2>Categorized Expense Dashboard</h2>
+                <p class="muted">Demo classifications and confidence indicators are simulated.</p>
+              </div>
+              <div class="table-actions">
+                <button type="button" class="ghost-btn" id="back-to-statement">Back</button>
+                <button type="button" class="secondary-btn" id="export-csv">Export CSV</button>
+                <button type="button" class="primary-btn" id="export-pdf">Export PDF</button>
+              </div>
+            </div>
+
+            <div id="dashboard-summary" class="dashboard-grid"></div>
+          </div>
+        </section>
+      </main>
     </div>
 
-    <script>
-        function validateCard() {
-            const cardNumber = document.getElementById('cardNumber').value;
-            const message = document.getElementById('message');
-
-            if (!cardNumber) {
-                message.textContent = 'Please enter a card number.';
-                message.style.color = 'red';
-                return;
-            }
-
-            const isValid = /^[0-9]{16}$/.test(cardNumber);
-
-            if (isValid) {
-                message.textContent = 'Card number is valid.';
-                message.style.color = 'green';
-            } else {
-                message.textContent = 'Invalid card number. Please enter a 16-digit number.';
-                message.style.color = 'red';
-            }
-        }
-    </script>
-</body>
+    <script src="app.js"></script>
+  </body>
 </html>

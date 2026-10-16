@@ -1,4 +1,5 @@
-const STORAGE_KEY = 'credit-card-expense-agent-demo';
+const STORAGE_KEY = 'credit-card-expense-agent';
+const API_BASE = 'http://localhost:8000';
 const CATEGORY_ORDER = ['Groceries', 'Dining', 'Shopping', 'Transport', 'Utilities', 'Travel', 'Healthcare', 'Entertainment', 'Other', 'Needs Review'];
 const CATEGORY_COLORS = {
   Groceries: '#20b7b4',
@@ -43,7 +44,10 @@ const appState = {
   dashboardFilters: {
     search: '',
     category: 'All'
-  }
+  },
+  aiChatHistory: [],
+  aiTyping: false,
+  rewardsData: null
 };
 
 const mockServices = {
@@ -148,9 +152,16 @@ function bindEvents() {
     event.preventDefault();
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
+
+    if (!isStrongPassword(password)) {
+      renderAuthStatus({ ok: false, message: 'Password must be at least 15 characters and include letters, numbers, and a special character.' }, 'login');
+      return;
+    }
+
     const result = mockServices.auth.login(email, password);
     renderAuthStatus(result, 'login');
     if (result.ok) {
+      resetChatSession();
       showScreen('profile');
     }
   });
@@ -167,9 +178,15 @@ function bindEvents() {
       return;
     }
 
+    if (!isStrongPassword(password)) {
+      renderAuthStatus({ ok: false, message: 'Password must be at least 15 characters and include letters, numbers, and a special character.' }, 'signup');
+      return;
+    }
+
     const result = mockServices.auth.signup(fullName, email, password);
     renderAuthStatus(result, 'signup');
     if (result.ok) {
+      resetChatSession();
       showScreen('profile');
     }
   });
@@ -187,6 +204,37 @@ function bindEvents() {
   if (backToStatement) backToStatement.addEventListener('click', () => showScreen('statement'));
 
   document.getElementById('logout-btn').addEventListener('click', logout);
+
+  document.getElementById('send-ai-message').addEventListener('click', () => {
+    const input = document.getElementById('ai-chat-input');
+    if (input) {
+      sendAiMessage(input.value);
+      input.value = '';
+    }
+  });
+
+  document.getElementById('ai-chat-input').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      document.getElementById('send-ai-message').click();
+    }
+  });
+
+  document.getElementById('review-expenses-btn').addEventListener('click', () => {
+    sendAiMessage('Review my expenses');
+  });
+
+  document.querySelectorAll('[data-sample-question]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const question = button.dataset.sampleQuestion;
+      if (question) {
+        const input = document.getElementById('ai-chat-input');
+        input.value = question;
+        sendAiMessage(question);
+        input.value = '';
+      }
+    });
+  });
 
   document.querySelectorAll('[data-bank]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -224,14 +272,14 @@ function bindEvents() {
     }
 
     const otpCode = document.getElementById('otp-code').value.trim();
-    const demoOtp = document.getElementById('demo-otp').dataset.otp || '483271';
+    const otpValue = document.getElementById('otp-display').dataset.otp || '483271';
     if (!otpCode) {
       showInlineError('Enter the simulated OTP received on the registered mobile number.');
       return;
     }
 
-    if (otpCode !== demoOtp) {
-      showInlineError('That OTP does not match the demo code. Use the displayed OTP for verification.');
+    if (otpCode !== otpValue) {
+      showInlineError('That OTP does not match the code. Use the displayed OTP for verification.');
       return;
     }
 
@@ -254,9 +302,9 @@ function bindEvents() {
   });
 
   document.getElementById('verify-otp-btn').addEventListener('click', () => {
-    const demoOtp = generateDemoOtp();
-    document.getElementById('demo-otp').textContent = `Demo OTP: ${demoOtp}`;
-    document.getElementById('demo-otp').dataset.otp = demoOtp;
+    const otpValue = generateOtp();
+    document.getElementById('otp-display').textContent = `OTP: ${otpValue}`;
+    document.getElementById('otp-display').dataset.otp = otpValue;
     document.getElementById('otp-box').classList.add('visible');
     document.getElementById('otp-code').focus();
   });
@@ -281,7 +329,7 @@ function bindEvents() {
 
     showInlineError('', true);
     loading.classList.add('visible');
-    info.textContent = 'Preparing demo statement...';
+    info.textContent = 'Preparing statement...';
 
     let progress = 0;
     const timer = setInterval(() => {
@@ -304,7 +352,7 @@ function bindEvents() {
           }
 
           loading.classList.remove('visible');
-          info.textContent = 'Demo statement retrieved successfully.';
+          info.textContent = 'Statement retrieved successfully.';
           showScreen('dashboard');
           renderDashboard();
         }, 350);
@@ -349,7 +397,7 @@ function hydrateState() {
     appState.statement = parsed.statement || null;
     appState.currentScreen = parsed.currentScreen || 'auth';
   } catch (error) {
-    console.warn('Unable to restore saved demo state.', error);
+    console.warn('Unable to restore saved state.', error);
   }
 }
 
@@ -372,6 +420,8 @@ function render() {
   renderBankSelection();
   renderStatementScreen();
   renderDashboard();
+  renderRewardsDashboard();
+  renderAiChatHistory();
   renderHeader();
   showScreen(appState.currentScreen);
 }
@@ -390,6 +440,16 @@ function renderHeader() {
     headerUser.parentElement.style.display = 'none';
     logoutBtn.style.display = 'none';
   }
+}
+
+function clearCurrentUserCache() {
+  appState.connectedCards = [];
+  appState.activeCard = null;
+  appState.statement = null;
+  appState.selectedBank = null;
+  appState.dashboardFilters = { search: '', category: 'All' };
+  appState.rewardsData = null;
+  resetAiChatState();
 }
 
 function renderAuthMode() {
@@ -450,14 +510,363 @@ function showScreen(screenName) {
   renderBankSelection();
   renderStatementScreen();
   renderDashboard();
+  renderRewardsDashboard();
+
+  if (screenName === 'dashboard') {
+    loadRewardsData();
+  }
+  renderRewardsDashboard();
 }
 
 function logout() {
+  resetChatSession();
+  localStorage.removeItem('auth_token');
   appState.currentUser = null;
   appState.currentScreen = 'auth';
   appState.activeCard = null;
   persistState();
   showScreen('auth');
+}
+
+function resetChatSession() {
+  appState.aiChatHistory = [];
+  appState.aiTyping = false;
+  renderAiChatHistory();
+}
+
+function resetAiChatState() {
+  resetChatSession();
+}
+
+function sendAiMessage(rawMessage) {
+  const message = (rawMessage || '').trim();
+  if (!message) return;
+
+  appState.aiChatHistory.push({
+    id: Date.now() + Math.random(),
+    role: 'user',
+    text: message
+  });
+
+  renderAiChatHistory();
+  appState.aiTyping = true;
+  renderAiChatHistory();
+
+  setTimeout(() => {
+    const response = createMockAiResponse(message);
+    appState.aiTyping = false;
+    appState.aiChatHistory.push({
+      id: Date.now() + Math.random(),
+      role: 'assistant',
+      text: response.text,
+      suggestion: response.suggestion || null
+    });
+    renderAiChatHistory();
+  }, 900);
+}
+
+function createMockAiResponse(message) {
+  const lower = message.toLowerCase();
+  const transactions = appState.statement ? appState.statement.transactions : [];
+
+  if (!transactions.length) {
+    return {
+      text: 'Mock AI response: No spending data is loaded yet. Fetch a statement first so I can review trends, categories, and suggested corrections.',
+      suggestion: null
+    };
+  }
+
+  const topTransaction = [...transactions].sort((a, b) => b.amount - a.amount)[0];
+  const categoryTotals = getCategoryTotals(transactions);
+  const topCategory = categoryTotals[0]?.category || 'Other';
+  const topMerchantCount = transactions.filter((item) => item.merchant === topTransaction.merchant).length;
+
+  if (lower.includes('most') || lower.includes('highest') || lower.includes('largest')) {
+    return {
+      text: `Mock AI response: You spent the most at ${topTransaction.merchant} with ${formatCurrency(topTransaction.amount)}. That was classified under ${topTransaction.category} and contributed the most to your ${topCategory} spending bucket.`,
+      suggestion: {
+        title: 'Suggested correction',
+        detail: `Review ${topTransaction.merchant} as ${topTransaction.category === 'Needs Review' ? 'Dining' : topTransaction.category}.`,
+        status: 'pending'
+      }
+    };
+  }
+
+  if (lower.includes('why') || lower.includes('category') || lower.includes('dining')) {
+    return {
+      text: `Mock AI response: This transaction was labeled as ${topTransaction.category} because the merchant pattern, recurrence, and overall spend mix were most consistent with ${topTransaction.category.toLowerCase()} spending. The model confidence was ${topTransaction.confidence.toLowerCase()} for this classification.`,
+      suggestion: {
+        title: 'Suggested correction',
+        detail: `If you want, I can suggest moving ${topTransaction.merchant} to ${topTransaction.category === 'Dining' ? 'Needs Review' : 'Dining'} for a tighter budget view.`,
+        status: 'pending'
+      }
+    };
+  }
+
+  if (lower.includes('suggest') || lower.includes('correction') || lower.includes('review')) {
+    return {
+      text: `Mock AI response: I recommend reviewing ${topTransaction.merchant} because it was one of your largest recent charges and has a mixed classification pattern. A small review could improve the expense summary and category accuracy.`,
+      suggestion: {
+        title: 'Suggested correction',
+        detail: `Change ${topTransaction.merchant} from ${topTransaction.category} to ${topTransaction.category === 'Needs Review' ? 'Dining' : 'Needs Review'} and keep the explanation aligned with your actual spend pattern.`,
+        status: 'pending'
+      }
+    };
+  }
+
+  return {
+    text: `Mock AI response: Based on your statement, your largest category is ${topCategory}, and the highest single spend is ${formatCurrency(topTransaction.amount)} at ${topTransaction.merchant}. I can help explain the classification, suggest corrections, or summarize your expense trends.`,
+    suggestion: {
+      title: 'Suggested correction',
+      detail: `Consider flagging ${topTransaction.merchant} for review if it should be grouped differently in your monthly budget.`,
+      status: 'pending'
+    }
+  };
+}
+
+function renderAiChatHistory() {
+  const chatHistory = document.getElementById('ai-chat-history');
+  if (!chatHistory) return;
+
+  if (!appState.aiChatHistory.length && !appState.aiTyping) {
+    chatHistory.innerHTML = `
+      <div class="chat-message assistant">
+        <div class="chat-bubble">Mock AI assistant: Ask about your spending, category explanations, or suggested corrections.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const messages = appState.aiChatHistory.map((entry) => {
+    const suggestionMarkup = entry.suggestion ? `
+      <div class="suggestion-box">
+        <strong>${entry.suggestion.title}</strong>
+        <p>${entry.suggestion.detail}</p>
+        <div class="suggestion-actions">
+          <button type="button" class="suggestion-action accept" data-message-id="${entry.id}" data-suggestion-action="accept">Accept</button>
+          <button type="button" class="suggestion-action reject" data-message-id="${entry.id}" data-suggestion-action="reject">Reject</button>
+        </div>
+      </div>
+    ` : '';
+
+    return `
+      <div class="chat-message ${entry.role === 'user' ? 'user' : 'assistant'}">
+        <div class="chat-bubble">
+          ${escapeHtml(entry.text)}
+          ${suggestionMarkup}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const typingMarkup = appState.aiTyping ? `
+    <div class="chat-message assistant">
+      <div class="typing-indicator" aria-label="AI is typing">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  ` : '';
+
+  chatHistory.innerHTML = `${messages}${typingMarkup}`;
+
+  chatHistory.querySelectorAll('[data-suggestion-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const messageId = Number(button.dataset.messageId);
+      const action = button.dataset.suggestionAction;
+      const targetMessage = appState.aiChatHistory.find((entry) => entry.id === messageId);
+      if (!targetMessage || !targetMessage.suggestion) return;
+
+      targetMessage.suggestion.status = action === 'accept' ? 'accepted' : 'rejected';
+      const statusText = action === 'accept' ? 'Accepted suggestion' : 'Rejected suggestion';
+      appState.aiChatHistory.push({
+        id: Date.now() + Math.random(),
+        role: 'assistant',
+        text: `Mock AI note: ${statusText}. I can apply the update or adjust the recommendation.`
+      });
+      renderAiChatHistory();
+    });
+  });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+async function loadRewardsData() {
+  if (!appState.currentUser) {
+    appState.rewardsData = null;
+    renderRewardsDashboard();
+    return;
+  }
+
+  const token = localStorage.getItem('auth_token');
+  if (!token) {
+    appState.rewardsData = {
+      integration_available: false,
+      available_points: 0,
+      monthly_earnings: [],
+      expiring_points: 0,
+      bank_filter_options: [],
+      points_by_bank: {},
+      redemption_enabled: false,
+      redemption_history: [],
+      transaction_rewards: []
+    };
+    renderRewardsDashboard();
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/rewards`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Rewards unavailable');
+    }
+
+    appState.rewardsData = await response.json();
+  } catch (error) {
+    appState.rewardsData = {
+      integration_available: false,
+      available_points: 0,
+      monthly_earnings: [],
+      expiring_points: 0,
+      bank_filter_options: [],
+      points_by_bank: {},
+      redemption_enabled: false,
+      redemption_history: [],
+      transaction_rewards: [],
+      message: 'Rewards data unavailable.'
+    };
+  }
+
+  renderRewardsDashboard();
+}
+
+function renderRewardsDashboard() {
+  const rewardsRoot = document.getElementById('rewards-dashboard');
+  if (!rewardsRoot) return;
+
+  const rewards = appState.rewardsData || {
+    integration_available: false,
+    available_points: 0,
+    monthly_earnings: [],
+    expiring_points: 0,
+    bank_filter_options: [],
+    points_by_bank: {},
+    redemption_enabled: false,
+    redemption_history: [],
+    transaction_rewards: []
+  };
+
+  if (!rewards.integration_available) {
+    rewardsRoot.innerHTML = '<div class="reward-empty-state">Rewards data unavailable.</div>';
+    return;
+  }
+
+  const points = Number(rewards.available_points || 0);
+  const pending = Number(rewards.expiring_points || 0);
+  const earnings = Array.isArray(rewards.monthly_earnings) && rewards.monthly_earnings.length ? rewards.monthly_earnings : [{ month: 'Current', points: 0 }];
+  const maxEarn = Math.max(1, ...earnings.map((entry) => Number(entry.points || 0)));
+  const bankItems = Array.isArray(rewards.bank_filter_options) && rewards.bank_filter_options.length
+    ? rewards.bank_filter_options
+    : ['No bank data'];
+
+  rewardsRoot.innerHTML = `
+    <div class="reward-summary-grid">
+      <div class="reward-card">
+        <span>Available points</span>
+        <strong>${points}</strong>
+      </div>
+      <div class="reward-card">
+        <span>Monthly earnings</span>
+        <strong>${earnings.reduce((sum, item) => sum + Number(item.points || 0), 0)}</strong>
+      </div>
+      <div class="reward-card">
+        <span>Expiring soon</span>
+        <strong>${pending}</strong>
+      </div>
+      <div class="reward-card">
+        <span>Bank filters</span>
+        <strong>${bankItems.length}</strong>
+      </div>
+    </div>
+
+    <div class="reward-panel-grid">
+      <div class="reward-chart-panel">
+        <h4>Reward earnings</h4>
+        <div class="reward-bars">
+          ${earnings.map((entry) => {
+            const barHeight = Math.max((Number(entry.points || 0) / maxEarn) * 100, 8);
+            return `
+              <div class="reward-bar-group">
+                <div class="reward-bar" style="height:${barHeight}%;"></div>
+                <div class="reward-bar-label">${String(entry.month).slice(-2)}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="reward-side-panel">
+        <h4>Eligible banks</h4>
+        <ul class="reward-list">
+          ${bankItems.map((bank) => `<li><span>${bank}</span><strong>${Number((rewards.points_by_bank && rewards.points_by_bank[bank]) || 0)}</strong></li>`).join('')}
+        </ul>
+
+        <div class="reward-action">
+          <span class="reward-pill">${rewards.redemption_enabled ? 'Redeem ready' : 'No active redemption'}</span>
+          <button type="button" class="primary-btn" id="reward-redemption-btn" ${rewards.redemption_enabled ? '' : 'disabled'}>Redeem points</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const redeemButton = document.getElementById('reward-redemption-btn');
+  if (redeemButton) {
+    redeemButton.addEventListener('click', async () => {
+      const rewardToken = localStorage.getItem('auth_token');
+      if (!rewardToken || !appState.rewardsData || !appState.rewardsData.redemption_enabled) return;
+
+      const bankName = (appState.rewardsData.bank_filter_options && appState.rewardsData.bank_filter_options[0]) || 'HDFC';
+      const redemptionPoints = Math.min(50, Number(appState.rewardsData.available_points || 0));
+
+      try {
+        const response = await fetch(`${API_BASE}/api/rewards/redeem`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${rewardToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ points: redemptionPoints, bank_name: bankName })
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.detail || 'Unable to redeem points');
+        }
+
+        if (payload.success) {
+          appState.rewardsData.available_points = payload.remaining_points;
+          appState.rewardsData.redemption_enabled = payload.remaining_points > 0;
+          renderRewardsDashboard();
+        }
+      } catch (error) {
+        console.warn('Reward redemption failed', error);
+      }
+    });
+  }
 }
 
 function renderProfile() {
@@ -500,7 +909,7 @@ function renderBankSelection() {
         <div class="bank-logo" style="background:${config.accent};">${bankName.substring(0, 2)}</div>
         <div>
           <h3>${bankName}</h3>
-          <p>Credit card linking and demo statement processing</p>
+          <p>Credit card linking and statement processing</p>
         </div>
       </button>
     `;
@@ -522,7 +931,7 @@ function renderStatementScreen() {
   const form = document.getElementById('statement-form');
   const activeBank = appState.selectedBank || 'HDFC';
   const bank = bankConfig[activeBank] || bankConfig.HDFC;
-  const selectedCard = appState.activeCard || ({ cardNumberMasked: '•••• •••• •••• 4242', cardholderName: 'Demo Cardholder' });
+  const selectedCard = appState.activeCard || ({ cardNumberMasked: '•••• •••• •••• 4242', cardholderName: 'Cardholder' });
 
   document.getElementById('statement-bank-name').textContent = activeBank;
   document.getElementById('statement-card').textContent = selectedCard.cardNumberMasked;
@@ -815,6 +1224,14 @@ function normalizeEmail(value) {
   return value.trim().toLowerCase();
 }
 
+function isStrongPassword(password) {
+  if (!password || password.length < 15) {
+    return false;
+  }
+
+  return /[A-Za-z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
+}
+
 function getInitials(name) {
   return (name || 'U').split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
@@ -882,7 +1299,7 @@ function showInlineError(message, clear = false) {
   el.classList.add('visible');
 }
 
-function generateDemoOtp() {
+function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 

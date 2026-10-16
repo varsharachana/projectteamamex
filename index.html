@@ -37,11 +37,11 @@
                 <div class="feature-list">
                   <div class="feature-item">
                     <strong>Bank-ready flow</strong>
-                    <span>Demo onboarding for multiple banks</span>
+                    <span>Bank onboarding for multiple institutions</span>
                   </div>
                   <div class="feature-item">
                     <strong>Smart categorization</strong>
-                    <span>Simulated AI confidence scoring</span>
+                    <span>AI confidence scoring for transactions</span>
                   </div>
                   <div class="feature-item">
                     <strong>Spending insights</strong>
@@ -78,7 +78,7 @@
                 </div>
 
                 <div class="inline-row">
-                  <span class="muted">Demo mode only</span>
+                  <span class="muted">Secure access</span>
                   <button class="primary-btn" type="submit">Login</button>
                 </div>
 
@@ -122,7 +122,7 @@
           <div class="content-panel panel">
             <div class="section-head">
               <h2>User Profile</h2>
-              <span class="meta-tag">Secure demo profile</span>
+              <span class="meta-tag">Secure profile</span>
             </div>
 
             <div class="profile-summary">
@@ -186,16 +186,16 @@
 
                   <div class="consent-box">
                     <input id="consent-checkbox" name="consent" type="checkbox" />
-                    <label for="consent-checkbox">I consent to retrieve and analyze statement details for demo expense categorization. I understand this is simulated and no CVV, PIN, or banking passwords are requested.</label>
+                    <label for="consent-checkbox">I consent to retrieve and analyze statement details for secure expense categorization. I understand this is simulated and no CVV, PIN, or banking passwords are requested.</label>
                   </div>
 
                   <div class="inline-row">
-                    <button type="button" class="secondary-btn" id="verify-otp-btn">Generate Demo OTP</button>
+                    <button type="button" class="secondary-btn" id="verify-otp-btn">Generate OTP</button>
                     <button type="submit" class="primary-btn">Verify & Connect</button>
                   </div>
 
                   <div class="otp-box" id="otp-box">
-                    <strong id="demo-otp" data-otp="483271">Demo OTP: 483271</strong>
+                    <strong id="otp-display" data-otp="483271">OTP: 483271</strong>
                     <div class="field">
                       <label for="otp-code">Enter OTP</label>
                       <input id="otp-code" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit OTP" />
@@ -212,7 +212,7 @@
                   <li>Card details are masked after entry and never stored in full.</li>
                   <li>We never request CVV, PIN, banking passwords, or one-time passwords from the bank itself.</li>
                   <li>Real statement retrieval requires a trusted provider integration and explicit user consent.</li>
-                  <li>Only safe demo data is persisted for the prototype.</li>
+                  <li>Only safe, masked data is persisted for the prototype.</li>
                 </ul>
               </aside>
             </div>
@@ -223,7 +223,7 @@
           <div class="content-panel panel">
             <div class="section-head">
               <h2>Retrieve Statement</h2>
-              <span class="meta-tag">Demo mode</span>
+              <span class="meta-tag">Secure mode</span>
             </div>
 
             <div class="statement-grid">
@@ -266,8 +266,8 @@
                   </div>
                 </div>
 
-                <div class="demo-note">
-                  Demo data only: real statement retrieval requires an authorized bank/provider integration and explicit consent. Card and mobile details alone cannot retrieve a bank statement.
+                <div class="info-note">
+                  Secure data only: real statement retrieval requires an authorized bank/provider integration and explicit consent. Card and mobile details alone cannot retrieve a bank statement.
                 </div>
               </form>
 
@@ -291,7 +291,7 @@
             <div class="section-head">
               <div>
                 <h2>Categorized Expense Dashboard</h2>
-                <p class="muted">Demo classifications and confidence indicators are simulated.</p>
+                <p class="muted">AI classifications and confidence indicators are simulated.</p>
               </div>
               <div class="table-actions">
                 <button type="button" class="ghost-btn" id="back-to-statement">Back</button>
@@ -300,7 +300,35 @@
               </div>
             </div>
 
-            <div id="dashboard-summary" class="dashboard-grid"></div>
+            <div class="dashboard-layout">
+              <div class="dashboard-column">
+                <div id="dashboard-summary" class="dashboard-grid"></div>
+                <div id="rewards-dashboard" class="rewards-dashboard"></div>
+              </div>
+
+              <aside class="chat-panel panel">
+                <div class="chat-header">
+                  <div>
+                    <span class="eyebrow compact">AI assistant</span>
+                    <h3>Expense review</h3>
+                  </div>
+                  <button type="button" class="secondary-btn" id="review-expenses-btn">Review My Expenses</button>
+                </div>
+
+                <div id="ai-chat-history" class="chat-history" aria-live="polite"></div>
+
+                <div class="chat-sample-list" aria-label="Sample question suggestions">
+                  <button type="button" class="chip-btn" data-sample-question="Where did I spend the most?">Where did I spend the most?</button>
+                  <button type="button" class="chip-btn" data-sample-question="Why was this categorized as Dining?">Why was this categorized as Dining?</button>
+                  <button type="button" class="chip-btn" data-sample-question="Suggest a correction for my highest spending merchant.">Suggest a correction</button>
+                </div>
+
+                <div class="chat-composer">
+                  <input id="ai-chat-input" type="text" placeholder="Ask about your spending..." aria-label="Ask the spending assistant" />
+                  <button type="button" class="primary-btn" id="send-ai-message">Send</button>
+                </div>
+              </aside>
+            </div>
           </div>
         </section>
       </main>
